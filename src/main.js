@@ -139,6 +139,10 @@ function illustratedSprite(path, width, height) {
 const paintedBackdrop = illustratedSprite('/art/forest-backdrop.svg', 78, 44);
 paintedBackdrop.position.set(0, 13, -57);
 scene.add(paintedBackdrop);
+const foregroundBushLeft = illustratedSprite('/art/foreground-bush.svg', 9.5, 5.3);
+foregroundBushLeft.position.set(-8.5, 2.3, 9); scene.add(foregroundBushLeft);
+const foregroundBushRight = illustratedSprite('/art/foreground-bush.svg', 10.5, 5.8);
+foregroundBushRight.position.set(9, 2.5, 5); foregroundBushRight.scale.x *= -1; scene.add(foregroundBushRight);
 
 function ensureAudio() { if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)(); if (audioContext.state === 'suspended') audioContext.resume(); }
 function sound(frequency, duration = .12, type = 'sine', volume = .035, delay = 0) { if (!audioContext) return; const start = audioContext.currentTime + delay; const oscillator = audioContext.createOscillator(); const gain = audioContext.createGain(); oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, start); gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(volume, start + .015); gain.gain.exponentialRampToValueAtTime(0.0001, start + duration); oscillator.connect(gain).connect(audioContext.destination); oscillator.start(start); oscillator.stop(start + duration + .02); }
@@ -165,10 +169,13 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(110, 110), groundMat);
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 const pathMat = new THREE.MeshStandardMaterial({ color: 0x9b7355, map: pathMap, roughness: .88, metalness: 0 });
 const path = new THREE.Mesh(new THREE.PlaneGeometry(8, 84), pathMat); path.rotation.x = -Math.PI / 2; path.position.y = .012; scene.add(path);
+const pathDetails = new THREE.Mesh(new THREE.PlaneGeometry(7.9, 83.9), new THREE.MeshBasicMaterial({ map: artLoader.load('/art/path-details.svg'), transparent: true, depthWrite: false }));
+pathDetails.rotation.x = -Math.PI / 2; pathDetails.position.y = .026; scene.add(pathDetails);
 
 function tree(x, z, scale = 1) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
-  const paintedTree = illustratedSprite('/art/tree-oak.svg', 4.2, 7.2); paintedTree.position.set(0, 3.45, .2); group.add(paintedTree);
+  const paintedTrunk = illustratedSprite('/art/tree-trunk.svg', 2.55, 5.25); paintedTrunk.position.set(0, 2.55, .22); group.add(paintedTrunk);
+  const paintedFoliage = illustratedSprite('/art/tree-foliage.svg', 4.9, 4.25); paintedFoliage.position.set(0, 5.2, .3); group.add(paintedFoliage);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.22, .34, 3.4, 10), new THREE.MeshStandardMaterial({ color: 0x4b342b, map: barkMap, roughness: .96, metalness: 0 }));
   trunk.position.y = 1.7; trunk.castShadow = true; group.add(trunk);
   const colors = [0x8b4e36, 0xaa6234, 0xc9853d, 0x667443];
@@ -179,7 +186,8 @@ for (let i = 0; i < 20; i++) { const side = i % 2 ? 1 : -1; tree(side * (7 + Mat
 
 function foregroundTree(x, z, scale) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
-  const paintedTree = illustratedSprite('/art/tree-oak.svg', 5.8, 9.5); paintedTree.position.set(0, 4.7, .35); group.add(paintedTree);
+  const paintedTrunk = illustratedSprite('/art/tree-trunk.svg', 3.5, 7.25); paintedTrunk.position.set(0, 3.55, .35); group.add(paintedTrunk);
+  const paintedFoliage = illustratedSprite('/art/tree-foliage.svg', 7.1, 6.2); paintedFoliage.position.set(0, 7.2, .42); group.add(paintedFoliage);
   const dark = new THREE.MeshToonMaterial({ color: 0x17272d, gradientMap: toonGradient });
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.38, .58, 8, 7), dark); trunk.position.y = 4; trunk.castShadow = true; group.add(trunk);
   for (const [rx, ry, rz] of [[.7, 5.8, .1], [-.65, 5.2, .25], [1.05, 4.7, -.1], [-1.2, 4.1, .15]]) { const branch = new THREE.Mesh(new THREE.CylinderGeometry(.1, .25, 3.1, 6), dark); branch.position.set(rx, ry, rz); branch.rotation.z = rx > 0 ? -.65 : .65; branch.castShadow = true; group.add(branch); }
