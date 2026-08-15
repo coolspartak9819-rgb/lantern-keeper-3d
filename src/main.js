@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import './style.css';
 
 const root = document.querySelector('#game');
@@ -24,14 +25,45 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.75, 0.5, 0.7);
 composer.addPass(bloomPass);
+const outlinePass = new OutlinePass(new THREE.Vector2(innerWidth, innerHeight), scene, camera);
+outlinePass.visibleEdgeColor.set(0x211821);
+outlinePass.hiddenEdgeColor.set(0x0e1118);
+outlinePass.edgeStrength = 3.1;
+outlinePass.edgeThickness = 1.25;
+composer.addPass(outlinePass);
 
 const clock = new THREE.Clock();
 const keys = {};
 const fireflies = [];
 const lanterns = [];
+const outlineObjects = [];
 const player = { yaw: 0, pitch: 0, speed: 7, fireflyCount: 0, score: 0, lit: 0, combo: 0, lastLightAt: 0, time: 90, active: false, ended: false };
 const $ = (id) => document.getElementById(id);
 let audioContext;
+let gameCore = null;
+
+async function loadGameCore() {
+  try {
+    const response = await fetch('/wasm/lantern_keeper_core.wasm');
+    const bytes = await response.arrayBuffer();
+    const module = await WebAssembly.instantiate(bytes);
+    gameCore = module.instance.exports;
+  } catch (error) {
+    // The JavaScript fallback keeps the game playable while developing without a WASM build.
+    console.warn('Rust WASM core is unavailable; using the browser fallback.', error);
+  }
+}
+
+async function loadRuntimePalette() {
+  try {
+    const palette = await (await fetch('/generated/palette.json')).json();
+    scene.background.set(palette.fog);
+    scene.fog.color.set(palette.fog);
+    moon.color.set(palette.moon);
+  } catch (error) {
+    console.warn('C++ palette file is unavailable; using the built-in palette.', error);
+  }
+}
 
 const toonGradient = new THREE.DataTexture(new Uint8Array([42, 84, 145, 198, 255]), 5, 1, THREE.RedFormat);
 toonGradient.needsUpdate = true;
@@ -106,7 +138,7 @@ function tree(x, z, scale = 1) {
   trunk.position.y = 1.7; trunk.castShadow = true; group.add(trunk);
   const colors = [0x8b4e36, 0xaa6234, 0xc9853d, 0x667443];
   for (let i = 0; i < 7; i++) { const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(1.05 - (i % 3) * .1, 1), new THREE.MeshStandardMaterial({ color: colors[i % colors.length], roughness: .92, flatShading: true })); crown.position.set((i % 2 ? .56 : -.48) + Math.sin(i * 1.7) * .25, 3.05 + i * .27, (i - 3) * .31); crown.rotation.y = i * .7; crown.castShadow = true; group.add(crown); }
-  scene.add(group);
+  scene.add(group); outlineObjects.push(group);
 }
 for (let i = 0; i < 20; i++) { const side = i % 2 ? 1 : -1; tree(side * (7 + Math.random() * 7), -38 + i * 4.2 + Math.random() * 2, .8 + Math.random() * .6); }
 
@@ -115,7 +147,7 @@ function foregroundTree(x, z, scale) {
   const dark = new THREE.MeshToonMaterial({ color: 0x17272d, gradientMap: toonGradient });
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.38, .58, 8, 7), dark); trunk.position.y = 4; trunk.castShadow = true; group.add(trunk);
   for (const [rx, ry, rz] of [[.7, 5.8, .1], [-.65, 5.2, .25], [1.05, 4.7, -.1], [-1.2, 4.1, .15]]) { const branch = new THREE.Mesh(new THREE.CylinderGeometry(.1, .25, 3.1, 6), dark); branch.position.set(rx, ry, rz); branch.rotation.z = rx > 0 ? -.65 : .65; branch.castShadow = true; group.add(branch); }
-  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 1), new THREE.MeshToonMaterial({ color: 0x1a3035, gradientMap: toonGradient, flatShading: true })); crown.position.y = 7; crown.castShadow = true; group.add(crown); scene.add(group);
+  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 1), new THREE.MeshToonMaterial({ color: 0x1a3035, gradientMap: toonGradient, flatShading: true })); crown.position.y = 7; crown.castShadow = true; group.add(crown); scene.add(group); outlineObjects.push(group);
 }
 foregroundTree(-8.2, 9, 1.4); foregroundTree(8.5, 3, 1.25); foregroundTree(-9.5, -24, 1.3); foregroundTree(9.5, -31, 1.45);
 
@@ -126,7 +158,7 @@ for (let i = 0; i < 18; i++) {
   const canopy = new THREE.Mesh(new THREE.ConeGeometry(2.1 + (i % 3) * .45, 7 + (i % 4), 7), distantForestMat);
   canopy.position.set(side * (10 + (i % 4) * 1.7), 3.8, -45 + i * 3.6);
   canopy.rotation.y = i * .37;
-  scene.add(canopy);
+  scene.add(canopy); outlineObjects.push(canopy);
 }
 
 const grassMat = new THREE.MeshToonMaterial({ color: 0x314c45, gradientMap: toonGradient, side: THREE.DoubleSide });
@@ -157,7 +189,7 @@ function makeLantern(x, z, index) {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowMap, color: 0xffb54e, transparent: true, opacity: .06, depthWrite: false, blending: THREE.AdditiveBlending })); glow.position.set(.56, 2.5, 0); glow.scale.set(3.4, 3.4, 1); group.add(glow);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(.48, .025, 6, 20), new THREE.MeshBasicMaterial({ color: 0xb36d36, transparent: true, opacity: .35 })); ring.rotation.x = Math.PI / 2; ring.position.y = .05; group.add(ring);
   const item = { group, light, bulb, ring, glow, filament, lit: false, index, pulse: Math.random() * 5 };
-  lanterns.push(item); scene.add(group);
+  lanterns.push(item); scene.add(group); outlineObjects.push(group);
 }
 [[0, 11], [0, -2], [0, -15], [0, -29], [-3.6, 5], [3.6, -8], [-3.6, -21], [3.6, -35]].forEach((p, i) => makeLantern(p[0], p[1], i));
 
@@ -170,7 +202,7 @@ for (let i = 0; i < 125; i++) { const leaf = new THREE.Mesh(leafGeo, new THREE.M
 
 function showToast(text) { const toast = $('toast'); toast.textContent = text; toast.style.opacity = '1'; clearTimeout(showToast.timer); showToast.timer = setTimeout(() => { toast.style.opacity = '0'; }, 1500); }
 function updateHUD() { $('score').textContent = String(player.score).padStart(4, '0'); $('combo').textContent = `x${Math.max(1, player.combo)}`; $('fireflies').textContent = player.fireflyCount; $('lantern-count').textContent = `${player.lit} / 8 фонарей зажжено`; $('progress-bar').style.width = `${player.lit / 8 * 100}%`; const seconds = Math.max(0, Math.ceil(player.time)); $('time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }
-function lightLantern(item) { item.lit = true; item.light.intensity = 5; item.bulb.material.color.set(0xffd17b); item.filament.material.color.set(0xfff0b4); item.glow.material.opacity = .92; item.ring.material.color.set(0xffb24f); item.ring.material.opacity = .95; player.fireflyCount -= 3; player.lit++; const now = clock.elapsedTime; player.combo = now - player.lastLightAt < 18 ? player.combo + 1 : 1; player.lastLightAt = now; const multiplier = 1 + (player.combo - 1) * .25; const points = Math.round((100 + player.lit * 25) * multiplier); player.score += points; sound(392, .25, 'sine', .04); sound(523, .4, 'sine', .04, .1); sound(659, .5, 'sine', .03, .2); showToast(player.combo > 1 ? `Комбо x${player.combo}  +${points}` : `Фонарь зажжён  +${points}`); updateHUD(); if (player.lit === lanterns.length) finish(); }
+function lightLantern(item) { item.lit = true; item.light.intensity = 5; item.bulb.material.color.set(0xffd17b); item.filament.material.color.set(0xfff0b4); item.glow.material.opacity = .92; item.ring.material.color.set(0xffb24f); item.ring.material.opacity = .95; player.fireflyCount -= 3; player.lit++; const now = clock.elapsedTime; const elapsedMs = Math.round((now - player.lastLightAt) * 1000); player.combo = gameCore ? gameCore.next_combo(player.combo, elapsedMs) : now - player.lastLightAt < 18 ? player.combo + 1 : 1; player.lastLightAt = now; const multiplier = 1 + (player.combo - 1) * .25; const points = gameCore ? gameCore.score_for_lantern(player.lit, player.combo) : Math.round((100 + player.lit * 25) * multiplier); player.score += points; sound(392, .25, 'sine', .04); sound(523, .4, 'sine', .04, .1); sound(659, .5, 'sine', .03, .2); showToast(player.combo > 1 ? `Комбо x${player.combo}  +${points}` : `Фонарь зажжён  +${points}`); updateHUD(); if (player.lit === lanterns.length) finish(); }
 function collectFireflies(dt) { for (const fly of fireflies) { if (fly.userData.collected) continue; fly.position.y = fly.userData.baseY + Math.sin(clock.elapsedTime * 1.7 + fly.userData.phase) * .18; fly.material.opacity = .75 + Math.sin(clock.elapsedTime * 4 + fly.userData.phase) * .25; if (fly.position.distanceTo(camera.position) < 1.25) { fly.userData.collected = true; fly.visible = false; player.fireflyCount++; player.score += 10; sound(740 + player.fireflyCount * 55, .16, 'sine', .035); showToast('+ 1 светлячок'); updateHUD(); } } }
 function nearestLantern() { let best = null; let distance = 999; for (const item of lanterns) { const d = item.group.position.distanceTo(camera.position); if (!item.lit && d < distance) { best = item; distance = d; } } return { item: best, distance }; }
 function interact() { if (!player.active) return; const near = nearestLantern(); if (near.item && near.distance < 3.2) { if (player.fireflyCount >= 3) lightLantern(near.item); else showToast(`Нужно ещё ${3 - player.fireflyCount} светлячка`); } }
@@ -192,5 +224,8 @@ if (location.hash === '#demo') {
 
 function movePlayer(dt) { const direction = new THREE.Vector3(Number(keys.KeyD) - Number(keys.KeyA), 0, Number(keys.KeyW) - Number(keys.KeyS)); if (!direction.lengthSq()) return; direction.normalize(); const forward = new THREE.Vector3(Math.sin(player.yaw), 0, -Math.cos(player.yaw)); const right = new THREE.Vector3(forward.z, 0, -forward.x); const sprinting = keys.ShiftLeft || keys.ShiftRight; const delta = forward.multiplyScalar(direction.z).add(right.multiplyScalar(direction.x)).multiplyScalar((sprinting ? 10 : player.speed) * dt); camera.position.add(delta); camera.position.x = THREE.MathUtils.clamp(camera.position.x, -5.3, 5.3); camera.position.z = THREE.MathUtils.clamp(camera.position.z, -42, 19); }
 function tick() { const dt = Math.min(clock.getDelta(), .05); if (player.active && !player.ended) { player.time -= dt; if (player.time <= 0) finish(); movePlayer(dt); collectFireflies(dt); const look = new THREE.Vector3(Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), Math.cos(player.yaw) * Math.cos(player.pitch)); camera.lookAt(camera.position.clone().add(look)); const near = nearestLantern(); $('prompt').style.opacity = near.item && near.distance < 3.2 ? '1' : '.65'; if (near.item && near.distance < 3.2) $('prompt').innerHTML = player.fireflyCount >= 3 ? '<span class="key">E</span> зажечь фонарь' : '<span class="key">E</span> нужно больше светлячков'; updateHUD(); } for (const lantern of lanterns) { if (lantern.lit) { lantern.light.intensity = 4.5 + Math.sin(clock.elapsedTime * 5 + lantern.pulse) * .4; lantern.glow.material.opacity = .75 + Math.sin(clock.elapsedTime * 4 + lantern.pulse) * .12; } } mistLayers.forEach((mist, index) => { mist.material.opacity = .045 + Math.sin(clock.elapsedTime * .32 + index) * .018; mist.position.x += Math.sin(clock.elapsedTime * .18 + index) * .0015; }); composer.render(); requestAnimationFrame(tick); }
-window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+outlinePass.selectedObjects = outlineObjects;
+window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); outlinePass.setSize(innerWidth, innerHeight); });
 updateHUD(); tick();
+loadGameCore();
+loadRuntimePalette();

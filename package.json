@@ -4,8 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run wasm:build && npm run assets:palette && vite",
+    "wasm:build": "sh scripts/build-wasm.sh",
+    "assets:palette": "sh scripts/build-palette.sh",
+    "build": "npm run wasm:build && npm run assets:palette && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
