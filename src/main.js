@@ -126,6 +126,19 @@ const barkMap = proceduralTexture('#3b2a26', '#9a6843', 26);
 const groundMap = proceduralTexture('#334943', '#6c7b63', 48);
 const pathMap = proceduralTexture('#79604d', '#c79456', 36);
 const glowMap = radialGlowTexture();
+const artLoader = new THREE.TextureLoader();
+
+function illustratedSprite(path, width, height) {
+  const texture = artLoader.load(path);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+  sprite.scale.set(width, height, 1);
+  return sprite;
+}
+
+const paintedBackdrop = illustratedSprite('/art/forest-backdrop.svg', 78, 44);
+paintedBackdrop.position.set(0, 13, -57);
+scene.add(paintedBackdrop);
 
 function ensureAudio() { if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)(); if (audioContext.state === 'suspended') audioContext.resume(); }
 function sound(frequency, duration = .12, type = 'sine', volume = .035, delay = 0) { if (!audioContext) return; const start = audioContext.currentTime + delay; const oscillator = audioContext.createOscillator(); const gain = audioContext.createGain(); oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, start); gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(volume, start + .015); gain.gain.exponentialRampToValueAtTime(0.0001, start + duration); oscillator.connect(gain).connect(audioContext.destination); oscillator.start(start); oscillator.stop(start + duration + .02); }
@@ -155,6 +168,7 @@ const path = new THREE.Mesh(new THREE.PlaneGeometry(8, 84), pathMat); path.rotat
 
 function tree(x, z, scale = 1) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
+  const paintedTree = illustratedSprite('/art/tree-oak.svg', 4.2, 7.2); paintedTree.position.set(0, 3.45, .2); group.add(paintedTree);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.22, .34, 3.4, 10), new THREE.MeshStandardMaterial({ color: 0x4b342b, map: barkMap, roughness: .96, metalness: 0 }));
   trunk.position.y = 1.7; trunk.castShadow = true; group.add(trunk);
   const colors = [0x8b4e36, 0xaa6234, 0xc9853d, 0x667443];
@@ -165,6 +179,7 @@ for (let i = 0; i < 20; i++) { const side = i % 2 ? 1 : -1; tree(side * (7 + Mat
 
 function foregroundTree(x, z, scale) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
+  const paintedTree = illustratedSprite('/art/tree-oak.svg', 5.8, 9.5); paintedTree.position.set(0, 4.7, .35); group.add(paintedTree);
   const dark = new THREE.MeshToonMaterial({ color: 0x17272d, gradientMap: toonGradient });
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.38, .58, 8, 7), dark); trunk.position.y = 4; trunk.castShadow = true; group.add(trunk);
   for (const [rx, ry, rz] of [[.7, 5.8, .1], [-.65, 5.2, .25], [1.05, 4.7, -.1], [-1.2, 4.1, .15]]) { const branch = new THREE.Mesh(new THREE.CylinderGeometry(.1, .25, 3.1, 6), dark); branch.position.set(rx, ry, rz); branch.rotation.z = rx > 0 ? -.65 : .65; branch.castShadow = true; group.add(branch); }
@@ -196,6 +211,7 @@ for (let i = 0; i < 7; i++) {
 
 function makeLantern(x, z, index) {
   const group = new THREE.Group(); group.position.set(x, 0, z);
+  const paintedLantern = illustratedSprite('/art/lantern-illustrated.svg', 1.35, 2.8); paintedLantern.position.set(.56, 1.43, .2); group.add(paintedLantern);
   const postMat = new THREE.MeshStandardMaterial({ color: 0x172027, metalness: .88, roughness: .28 });
   const post = new THREE.Mesh(new THREE.CylinderGeometry(.075, .125, 2.72, 12), postMat); post.position.y = 1.36; post.castShadow = true; group.add(post);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(.22, .3, .18, 12), postMat); base.position.y = .09; base.castShadow = true; group.add(base);
@@ -219,6 +235,7 @@ const leafGeo = new THREE.PlaneGeometry(.17, .1);
 for (let i = 0; i < 125; i++) { const leaf = new THREE.Mesh(leafGeo, new THREE.MeshBasicMaterial({ color: [0xa94d29, 0xd28739, 0xb67332][i % 3], side: THREE.DoubleSide })); leaf.position.set((Math.random() - .5) * 13, .06 + Math.random() * .03, -42 + Math.random() * 58); leaf.rotation.set(-Math.PI / 2, Math.random() * 3, Math.random() * 3); leaf.scale.setScalar(.65 + Math.random() * .8); scene.add(leaf); }
 
 const keeper = new THREE.Group();
+const paintedKeeper = illustratedSprite('/art/keeper-illustrated.svg', 1.85, 2.65); paintedKeeper.position.set(0, 1.34, .35); keeper.add(paintedKeeper);
 const keeperCoat = new THREE.Mesh(new THREE.ConeGeometry(.36, .95, 7), new THREE.MeshToonMaterial({ color: 0x8a3e38, gradientMap: toonGradient })); keeperCoat.position.y = .52; keeper.add(keeperCoat);
 const keeperHead = new THREE.Mesh(new THREE.SphereGeometry(.23, 12, 9), new THREE.MeshToonMaterial({ color: 0xf0c0a0, gradientMap: toonGradient })); keeperHead.position.y = 1.16; keeper.add(keeperHead);
 const keeperCap = new THREE.Mesh(new THREE.ConeGeometry(.3, .18, 7), new THREE.MeshToonMaterial({ color: 0x3d5d78, gradientMap: toonGradient })); keeperCap.position.y = 1.38; keeperCap.rotation.z = -.15; keeper.add(keeperCap);
