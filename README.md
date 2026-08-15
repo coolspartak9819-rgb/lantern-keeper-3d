@@ -24,8 +24,10 @@ npm run dev
 
 - Three.js and WebGL
 - Vite
-- Procedural low-poly environment
-- Dynamic point lights, fog, fireflies and responsive HUD
+- Стилизованное PBR-окружение: текстурные материалы земли, тропы и коры
+- Кинематографический post-processing: bloom, тонирование, многослойный туман
+- Детализированные фонари со стеклом, металлом, нитью накаливания и динамическим светом
+- Динамические тени, светлячки, горные силуэты и адаптивный HUD
 
 ## Проверка
 
