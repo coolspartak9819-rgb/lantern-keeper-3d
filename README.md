@@ -1,35 +1,35 @@
-# Lantern Keeper 3D
+# Хранитель фонарей 3D
 
-A small atmospheric first-person game about bringing an autumn park back to
-life before nightfall.
+Небольшая атмосферная игра от первого лица о том, как вернуть свет осеннему
+парку до наступления ночи.
 
-Gather three fireflies, find a dark lantern, press `E` to light it, and keep
-moving. Eight lanterns, a 90-second timer, combo-style scoring and a short
-walkable park make up the first playable slice.
+Собери трёх светлячков, найди погасший фонарь и нажми `E`, чтобы зажечь его.
+Тебя ждут восемь фонарей, таймер на 90 секунд, очки и небольшой парк для
+прогулки.
 
-## Run
+## Запуск
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local Vite URL. Click **Enter the park**, then use `WASD` to move,
-the mouse to look around, and `E` near a lantern. Click the canvas again if
-you need to recapture the mouse. `R` restarts after the round ends.
+Открой локальный адрес Vite. Нажми **Войти в парк**, используй `WASD` для
+движения, мышь для обзора и `E` рядом с фонарём. Если обзор остановился,
+кликни по сцене. После окончания раунда клавиша `R` начинает игру заново.
 
-## Stack
+## Технологии
 
 - Three.js and WebGL
 - Vite
 - Procedural low-poly environment
 - Dynamic point lights, fog, fireflies and responsive HUD
 
-## Verification
+## Проверка
 
 ```bash
 npm run build
 ```
 
-The project intentionally starts as a polished single-player loop. A future
-leaderboard can be added without changing the core game scene.
+Проект начинается с законченного одиночного игрового цикла. Таблицу лидеров
+можно добавить позже, не меняя основную сцену.
