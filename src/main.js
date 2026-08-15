@@ -20,6 +20,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 root.append(renderer.domElement);
+renderer.domElement.tabIndex = 0;
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
@@ -217,6 +218,13 @@ function makeLantern(x, z, index) {
 const leafGeo = new THREE.PlaneGeometry(.17, .1);
 for (let i = 0; i < 125; i++) { const leaf = new THREE.Mesh(leafGeo, new THREE.MeshBasicMaterial({ color: [0xa94d29, 0xd28739, 0xb67332][i % 3], side: THREE.DoubleSide })); leaf.position.set((Math.random() - .5) * 13, .06 + Math.random() * .03, -42 + Math.random() * 58); leaf.rotation.set(-Math.PI / 2, Math.random() * 3, Math.random() * 3); leaf.scale.setScalar(.65 + Math.random() * .8); scene.add(leaf); }
 
+const keeper = new THREE.Group();
+const keeperCoat = new THREE.Mesh(new THREE.ConeGeometry(.36, .95, 7), new THREE.MeshToonMaterial({ color: 0x8a3e38, gradientMap: toonGradient })); keeperCoat.position.y = .52; keeper.add(keeperCoat);
+const keeperHead = new THREE.Mesh(new THREE.SphereGeometry(.23, 12, 9), new THREE.MeshToonMaterial({ color: 0xf0c0a0, gradientMap: toonGradient })); keeperHead.position.y = 1.16; keeper.add(keeperHead);
+const keeperCap = new THREE.Mesh(new THREE.ConeGeometry(.3, .18, 7), new THREE.MeshToonMaterial({ color: 0x3d5d78, gradientMap: toonGradient })); keeperCap.position.y = 1.38; keeperCap.rotation.z = -.15; keeper.add(keeperCap);
+const keeperGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowMap, color: 0xffce71, transparent: true, opacity: .42, depthWrite: false, blending: THREE.AdditiveBlending })); keeperGlow.position.set(0, .74, .28); keeperGlow.scale.set(1.4, 1.4, 1); keeper.add(keeperGlow);
+keeper.position.set(0, 0, 18); scene.add(keeper); outlineObjects.push(keeper);
+
 const travelers = [];
 const monsters = [];
 const pickupColors = { yellow: 0xffd85c, blue: 0x69d4ff, purple: 0xc989ff };
@@ -286,9 +294,9 @@ function legacyStart() {}
 function legacyFinish() {}
 function reset() { location.reload(); }
 
-window.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyE') interact(); if (e.code === 'Space') { e.preventDefault(); useFlash(); } if (e.code === 'Digit1') player.selectedType = 'yellow'; if (e.code === 'Digit2') player.selectedType = 'blue'; if (e.code === 'Digit3') player.selectedType = 'purple'; if (e.code === 'KeyR' && player.ended) reset(); });
+window.addEventListener('keydown', e => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault(); keys[e.code] = true; if (e.code === 'KeyE') interact(); if (e.code === 'Space') useFlash(); if (e.code === 'Digit1') player.selectedType = 'yellow'; if (e.code === 'Digit2') player.selectedType = 'blue'; if (e.code === 'Digit3') player.selectedType = 'purple'; if (e.code === 'KeyR' && player.ended) reset(); });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
-window.addEventListener('mousemove', e => { if (!player.active || document.pointerLockElement !== renderer.domElement) return; player.yaw -= e.movementX * .0022; player.pitch = THREE.MathUtils.clamp(player.pitch - e.movementY * .0018, -1.25, 1.25); });
+window.addEventListener('mousemove', e => { if (!player.active || document.pointerLockElement !== renderer.domElement) return; player.yaw += e.movementX * .0022; player.pitch = THREE.MathUtils.clamp(player.pitch - e.movementY * .0018, -1.25, 1.25); });
 renderer.domElement.addEventListener('click', () => { if (player.active) renderer.domElement.requestPointerLock?.(); });
 $('start-button').addEventListener('click', start); $('restart-button').addEventListener('click', reset);
 if (location.hash === '#demo') {
@@ -298,7 +306,7 @@ if (location.hash === '#demo') {
   startScreen.style.display = 'none';
 }
 
-function movePlayer(dt) { const direction = new THREE.Vector3(Number(keys.KeyD || keys.ArrowRight) - Number(keys.KeyA || keys.ArrowLeft), 0, Number(keys.KeyW || keys.ArrowUp) - Number(keys.KeyS || keys.ArrowDown)); if (!direction.lengthSq()) return; direction.normalize(); const forward = new THREE.Vector3(Math.sin(player.yaw), 0, -Math.cos(player.yaw)); const right = new THREE.Vector3(forward.z, 0, -forward.x); const sprinting = keys.ShiftLeft || keys.ShiftRight || keys.Space; const delta = forward.multiplyScalar(direction.z).add(right.multiplyScalar(direction.x)).multiplyScalar((sprinting ? 10 : player.speed) * dt); camera.position.add(delta); camera.position.x = THREE.MathUtils.clamp(camera.position.x, -5.3, 5.3); camera.position.z = THREE.MathUtils.clamp(camera.position.z, -42, 19); }
+function movePlayer(dt) { const direction = new THREE.Vector3(Number(keys.KeyD || keys.ArrowRight) - Number(keys.KeyA || keys.ArrowLeft), 0, Number(keys.KeyW || keys.ArrowUp) - Number(keys.KeyS || keys.ArrowDown)); if (!direction.lengthSq()) return; direction.normalize(); const forward = new THREE.Vector3(Math.sin(player.yaw), 0, -Math.cos(player.yaw)); const right = new THREE.Vector3(-forward.z, 0, forward.x); const sprinting = keys.ShiftLeft || keys.ShiftRight; const delta = forward.multiplyScalar(direction.z).add(right.multiplyScalar(direction.x)).multiplyScalar((sprinting ? 10 : player.speed) * dt); keeper.position.add(delta); keeper.position.x = THREE.MathUtils.clamp(keeper.position.x, -5.3, 5.3); keeper.position.z = THREE.MathUtils.clamp(keeper.position.z, -42, 19); keeper.rotation.y = player.yaw; }
 function legacyTick() {}
 outlinePass.selectedObjects = outlineObjects;
 window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); outlinePass.setSize(innerWidth, innerHeight); });
@@ -341,7 +349,7 @@ function setLanternType(item, type) {
 
 function nearestLanternToPlayer() {
   return lanterns.reduce((nearest, item) => {
-    const distance = item.group.position.distanceTo(camera.position);
+    const distance = item.group.position.distanceTo(keeper.position);
     return !nearest || distance < nearest.distance ? { item, distance } : nearest;
   }, null);
 }
@@ -351,7 +359,7 @@ function collectFireflies() {
     if (fly.userData.collected) continue;
     fly.position.y = fly.userData.baseY + Math.sin(clock.elapsedTime * 1.7 + fly.userData.phase) * .18;
     fly.rotation.y += .02;
-    if (fly.position.distanceTo(camera.position) < 1.45) {
+    if (fly.position.distanceTo(keeper.position) < 1.45) {
       fly.userData.collected = true;
       fly.visible = false;
       player.inventory[fly.userData.type]++;
@@ -450,7 +458,7 @@ function useFlash() {
   player.inventory.yellow = Math.max(0, player.inventory.yellow - 1);
   player.inventory.blue = Math.max(0, player.inventory.blue - 1);
   player.flashAt = clock.elapsedTime; player.shake = .45;
-  for (const monster of [...monsters]) { if (monster.group.position.distanceTo(camera.position) < 8) { monster.group.position.z += 4; damageMonster(monster, 70); } }
+  for (const monster of [...monsters]) { if (monster.group.position.distanceTo(keeper.position) < 8) { monster.group.position.z += 4; damageMonster(monster, 70); } }
   showToast('ВСПЫШКА! Тени отступают'); sound(880, .28, 'sine', .06); updateHUD();
 }
 
@@ -461,14 +469,17 @@ function interact() {
   updateHUD();
 }
 
-function start() { ensureAudio(); player.active = true; $('start-screen').classList.add('hidden'); renderer.domElement.requestPointerLock?.(); showToast('Защити первую группу путников'); sound(262, .2, 'sine', .025); }
+function start() { ensureAudio(); player.active = true; $('start-screen').classList.add('hidden'); renderer.domElement.focus(); renderer.domElement.requestPointerLock?.(); showToast('Защити первую группу путников'); sound(262, .2, 'sine', .025); }
 function finish(success) { if (player.ended) return; player.active = false; player.ended = true; document.exitPointerLock?.(); const previousBest = Number(localStorage.getItem('lantern-keeper-best') || 0); const best = Math.max(previousBest, player.score); localStorage.setItem('lantern-keeper-best', String(best)); $('finish-eyebrow').textContent = success ? 'ТРОПА СПАСЕНА' : 'ТЕНИ ПРОРВАЛИСЬ'; $('finish-title').innerHTML = success ? 'Доброй ночи,<br /><em>хранитель.</em>' : 'Лес поглотил<br /><em>тропу.</em>'; $('finish-copy').textContent = success ? 'Все путники добрались до дома.' : 'Путники испугались и не смогли продолжить путь.'; $('final-score').textContent = String(player.score).padStart(4, '0'); $('best-score').textContent = player.score >= previousBest ? 'Новый рекорд' : `Рекорд: ${String(best).padStart(4, '0')}`; $('finish-screen').classList.add('visible'); }
 
 function tick() {
   const dt = Math.min(clock.getDelta(), .05);
   if (player.active && !player.ended) { player.time -= dt; if (player.time <= 0) finish(false); movePlayer(dt); collectFireflies(); updateWave(); updateLanterns(dt); updateTravelers(dt); updateMonsters(dt); updateHUD(); }
-  const look = new THREE.Vector3(Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), -Math.cos(player.yaw) * Math.cos(player.pitch));
-  camera.lookAt(camera.position.clone().add(look));
+  const forward = new THREE.Vector3(Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  const cameraTarget = keeper.position.clone().add(forward.clone().multiplyScalar(4.5)).add(new THREE.Vector3(0, 1.05 + player.pitch * .8, 0));
+  const cameraPosition = keeper.position.clone().sub(forward.clone().multiplyScalar(7.2)).add(new THREE.Vector3(0, 4.1, 0));
+  camera.position.lerp(cameraPosition, .13);
+  camera.lookAt(cameraTarget);
   player.shake = Math.max(0, player.shake - dt * 1.8);
   root.style.transform = player.shake > 0 ? `translate(${(Math.random() - .5) * player.shake * 18}px, ${(Math.random() - .5) * player.shake * 18}px)` : '';
   for (const lantern of lanterns) if (lantern.lit) lantern.ring.rotation.z += dt * 1.5;
