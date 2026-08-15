@@ -230,7 +230,7 @@ for (let i = 0; i < 7; i++) {
 
 function makeLantern(x, z, index) {
   const group = new THREE.Group(); group.position.set(x, 0, z);
-  const paintedLantern = illustratedSprite('/art/lantern-illustrated.svg', 1.35, 2.8); paintedLantern.position.set(.56, 1.43, .2); group.add(paintedLantern);
+  const paintedLantern = illustratedSprite('/art/lanterns/path-lantern.png', 1.32, 4.05); paintedLantern.position.set(.56, 1.43, .2); group.add(paintedLantern);
   const postMat = new THREE.MeshStandardMaterial({ color: 0x172027, metalness: .88, roughness: .28 });
   const post = new THREE.Mesh(new THREE.CylinderGeometry(.075, .125, 2.72, 12), postMat); post.position.y = 1.36; post.castShadow = true; group.add(post);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(.22, .3, .18, 12), postMat); base.position.y = .09; base.castShadow = true; group.add(base);
