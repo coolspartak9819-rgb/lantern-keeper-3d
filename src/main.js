@@ -174,8 +174,7 @@ pathDetails.rotation.x = -Math.PI / 2; pathDetails.position.y = .026; scene.add(
 
 function tree(x, z, scale = 1) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
-  const paintedTrunk = illustratedSprite('/art/tree-trunk.svg', 2.55, 5.25); paintedTrunk.position.set(0, 2.55, .22); group.add(paintedTrunk);
-  const paintedFoliage = illustratedSprite('/art/tree-foliage.svg', 4.9, 4.25); paintedFoliage.position.set(0, 5.2, .3); group.add(paintedFoliage);
+  const paintedTree = illustratedSprite('/art/trees/autumn-oak.png', 11, 9.7); paintedTree.position.set(0, 4.85, .32); group.add(paintedTree);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.22, .34, 3.4, 10), new THREE.MeshStandardMaterial({ color: 0x4b342b, map: barkMap, roughness: .96, metalness: 0 }));
   trunk.position.y = 1.7; trunk.castShadow = true; group.add(trunk);
   const colors = [0x8b4e36, 0xaa6234, 0xc9853d, 0x667443];
@@ -186,8 +185,7 @@ for (let i = 0; i < 20; i++) { const side = i % 2 ? 1 : -1; tree(side * (7 + Mat
 
 function foregroundTree(x, z, scale) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
-  const paintedTrunk = illustratedSprite('/art/tree-trunk.svg', 3.5, 7.25); paintedTrunk.position.set(0, 3.55, .35); group.add(paintedTrunk);
-  const paintedFoliage = illustratedSprite('/art/tree-foliage.svg', 7.1, 6.2); paintedFoliage.position.set(0, 7.2, .42); group.add(paintedFoliage);
+  const paintedTree = illustratedSprite('/art/trees/autumn-oak.png', 17, 15); paintedTree.position.set(0, 7.5, .45); group.add(paintedTree);
   const dark = new THREE.MeshToonMaterial({ color: 0x17272d, gradientMap: toonGradient });
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.38, .58, 8, 7), dark); trunk.position.y = 4; trunk.castShadow = true; group.add(trunk);
   for (const [rx, ry, rz] of [[.7, 5.8, .1], [-.65, 5.2, .25], [1.05, 4.7, -.1], [-1.2, 4.1, .15]]) { const branch = new THREE.Mesh(new THREE.CylinderGeometry(.1, .25, 3.1, 6), dark); branch.position.set(rx, ry, rz); branch.rotation.z = rx > 0 ? -.65 : .65; branch.castShadow = true; group.add(branch); }
