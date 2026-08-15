@@ -14,21 +14,27 @@
         <div class="brand"><span class="brand-mark">✦</span><span>Хранитель фонарей</span></div>
         <div class="top-stats">
           <div><span class="stat-label">ОЧКИ</span><strong id="score">0000</strong></div>
-          <div><span class="stat-label">КОМБО</span><strong id="combo">x1</strong></div>
-          <div><span class="stat-label">ВРЕМЯ</span><strong id="time">01:30</strong></div>
+          <div><span class="stat-label">ВОЛНА</span><strong id="wave">01</strong></div>
+          <div><span class="stat-label">ВРЕМЯ</span><strong id="time">02:30</strong></div>
         </div>
       </header>
       <section class="mission-card">
-        <div class="eyebrow">ОСЕННИЙ ПАРК · СУМЕРКИ</div>
-        <h1>Освети дорогу домой.</h1>
-        <p>Собери светлячков и верни парку жизнь до того, как погаснет последний свет.</p>
-        <div class="progress-row"><span id="lantern-count">0 / 8 фонарей зажжено</span><div class="progress"><i id="progress-bar"></i></div></div>
+        <div class="eyebrow">ЗАЩИТА ТРОПЫ · СУМЕРКИ</div>
+        <h1>Проводи их домой.</h1>
+        <p>Заряди фонари и не дай теням добраться до путников.</p>
+        <div class="progress-row"><span id="caravan-count">Путники 6 / 6</span><div class="progress"><i id="caravan-bar"></i></div></div>
+        <div class="progress-row"><span id="lantern-count">0 / 8 фонарей активно</span><div class="progress"><i id="progress-bar"></i></div></div>
       </section>
-      <div class="prompt" id="prompt"><span class="key">W A S D</span> движение <span class="key">МЫШЬ</span> обзор</div>
+      <div class="prompt" id="prompt"><span class="key">W A S D</span> движение <span class="key">E</span> зарядить</div>
       <div class="crosshair" aria-hidden="true"><i></i></div>
       <aside class="inventory">
         <div class="inventory-icon">✦</div>
-        <div><span class="stat-label">СВЕТЛЯЧКИ</span><strong><span id="fireflies">0</span> / 3</strong></div>
+        <div class="inventory-items">
+          <button class="fly-slot selected" data-type="yellow" title="Жёлтый светлячок"><i></i><b id="fly-yellow">0</b></button>
+          <button class="fly-slot" data-type="blue" title="Синий светлячок"><i></i><b id="fly-blue">0</b></button>
+          <button class="fly-slot" data-type="purple" title="Фиолетовый светлячок"><i></i><b id="fly-purple">0</b></button>
+        </div>
+        <div class="flash-meter"><span class="stat-label">ВСПЫШКА</span><strong id="flash-ready">ГОТОВА</strong></div>
       </aside>
       <div class="toast" id="toast"></div>
       <section class="start-screen" id="start-screen">
@@ -36,13 +42,13 @@
         <div class="start-content">
           <div class="eyebrow">ТИХАЯ НОЧНАЯ ПРОГУЛКА</div>
           <h2>Хранитель<br /><em>фонарей</em></h2>
-          <p>Небольшая история о свете, времени и дороге через осенний парк.</p>
+          <p>Проводи путников через лес, заряжай защитные фонари и останови тени.</p>
           <button id="start-button">Войти в парк <span>→</span></button>
-          <div class="controls"><span><b>WASD</b> движение</span><span><b>SHIFT</b> бег</span><span><b>E</b> зажечь</span></div>
+          <div class="controls"><span><b>WASD</b> движение</span><span><b>SHIFT</b> рывок</span><span><b>E</b> зарядить</span><span><b>ПРОБЕЛ</b> вспышка</span></div>
         </div>
       </section>
       <section class="finish-screen" id="finish-screen">
-        <div class="finish-card"><div class="eyebrow">ПАРК СНОВА ОЖИЛ</div><h2>Доброй ночи,<br /><em>хранитель.</em></h2><p>Ты успел зажечь все фонари до наступления темноты.</p><div class="final-score"><span>ИТОГОВЫЕ ОЧКИ</span><strong id="final-score">0000</strong><small id="best-score"></small></div><button id="restart-button">Пройти ещё раз <span>↗</span></button></div>
+        <div class="finish-card"><div class="eyebrow" id="finish-eyebrow">ТРОПА СПАСЕНА</div><h2 id="finish-title">Доброй ночи,<br /><em>хранитель.</em></h2><p id="finish-copy">Все путники добрались до дома.</p><div class="final-score"><span>ИТОГОВЫЕ ОЧКИ</span><strong id="final-score">0000</strong><small id="best-score"></small></div><button id="restart-button">Защитить тропу снова <span>↗</span></button></div>
       </section>
     </main>
     <script type="module" src="/src/main.js"></script>

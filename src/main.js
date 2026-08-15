@@ -37,7 +37,7 @@ const keys = {};
 const fireflies = [];
 const lanterns = [];
 const outlineObjects = [];
-const player = { yaw: 0, pitch: 0, speed: 7, fireflyCount: 0, score: 0, lit: 0, combo: 0, lastLightAt: 0, time: 90, active: false, ended: false };
+const player = { yaw: 0, pitch: 0, speed: 7, score: 0, combo: 0, lastLightAt: 0, time: 150, active: false, ended: false, selectedType: 'yellow', inventory: { yellow: 3, blue: 2, purple: 1 }, flashAt: -99, shake: 0 };
 const $ = (id) => document.getElementById(id);
 let audioContext;
 let gameCore = null;
@@ -99,6 +99,26 @@ function radialGlowTexture() {
   context.fillStyle = gradient;
   context.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(canvas);
+}
+
+function makeMeterSprite(color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 24;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(1.35, .25, 1);
+  return { sprite, canvas, texture, color };
+}
+
+function updateMeter(meter, value) {
+  const context = meter.canvas.getContext('2d');
+  context.clearRect(0, 0, 128, 24);
+  context.fillStyle = 'rgba(5, 10, 16, .72)'; context.fillRect(4, 6, 120, 12);
+  context.fillStyle = meter.color; context.fillRect(6, 8, Math.max(0, Math.min(116, 116 * value)), 8);
+  context.strokeStyle = 'rgba(255,255,255,.42)'; context.strokeRect(4.5, 6.5, 119, 11);
+  meter.texture.needsUpdate = true;
 }
 
 const barkMap = proceduralTexture('#3b2a26', '#9a6843', 26);
@@ -188,29 +208,85 @@ function makeLantern(x, z, index) {
   light.position.x = .56;
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowMap, color: 0xffb54e, transparent: true, opacity: .06, depthWrite: false, blending: THREE.AdditiveBlending })); glow.position.set(.56, 2.5, 0); glow.scale.set(3.4, 3.4, 1); group.add(glow);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(.48, .025, 6, 20), new THREE.MeshBasicMaterial({ color: 0xb36d36, transparent: true, opacity: .35 })); ring.rotation.x = Math.PI / 2; ring.position.y = .05; group.add(ring);
-  const item = { group, light, bulb, ring, glow, filament, lit: false, index, pulse: Math.random() * 5 };
+  const meter = makeMeterSprite('#ffd16d'); meter.sprite.position.set(.56, 3.35, 0); meter.sprite.visible = false; group.add(meter.sprite);
+  const item = { group, light, bulb, ring, glow, filament, meter, lit: false, index, pulse: Math.random() * 5, charge: 0, type: null, attackAt: 0 };
   lanterns.push(item); scene.add(group); outlineObjects.push(group);
 }
 [[0, 11], [0, -2], [0, -15], [0, -29], [-3.6, 5], [3.6, -8], [-3.6, -21], [3.6, -35]].forEach((p, i) => makeLantern(p[0], p[1], i));
 
-const fireflyGeo = new THREE.SphereGeometry(.07, 8, 8);
-const fireflyMat = new THREE.MeshBasicMaterial({ color: 0xffe19a });
-for (let i = 0; i < 38; i++) { const mesh = new THREE.Mesh(fireflyGeo, fireflyMat); mesh.position.set((Math.random() - .5) * 12, .65 + Math.random() * 2.3, -38 + Math.random() * 53); mesh.userData = { baseY: mesh.position.y, phase: Math.random() * 6, collected: false }; fireflies.push(mesh); scene.add(mesh); }
-
 const leafGeo = new THREE.PlaneGeometry(.17, .1);
 for (let i = 0; i < 125; i++) { const leaf = new THREE.Mesh(leafGeo, new THREE.MeshBasicMaterial({ color: [0xa94d29, 0xd28739, 0xb67332][i % 3], side: THREE.DoubleSide })); leaf.position.set((Math.random() - .5) * 13, .06 + Math.random() * .03, -42 + Math.random() * 58); leaf.rotation.set(-Math.PI / 2, Math.random() * 3, Math.random() * 3); leaf.scale.setScalar(.65 + Math.random() * .8); scene.add(leaf); }
 
+const travelers = [];
+const monsters = [];
+const pickupColors = { yellow: 0xffd85c, blue: 0x69d4ff, purple: 0xc989ff };
+const lanternTypes = {
+  yellow: { label: 'жёлтый', color: 0xffc55e, radius: 6.1, damage: 18 },
+  blue: { label: 'синий', color: 0x6acfff, radius: 8.3, damage: 5 },
+  purple: { label: 'фиолетовый', color: 0xd28cff, radius: 6.7, damage: 28 },
+};
+const waveState = { number: 0, remaining: 0, spawnAt: 0, nextWaveAt: 4, cleared: 0 };
+
+function makeTraveler(index) {
+  const group = new THREE.Group();
+  const coat = new THREE.Mesh(new THREE.ConeGeometry(.24, .72, 6), new THREE.MeshToonMaterial({ color: [0xf0a36a, 0x90c6d8, 0xd9b4eb][index % 3], gradientMap: toonGradient }));
+  coat.position.y = .42; group.add(coat);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 8), new THREE.MeshToonMaterial({ color: 0xf1c2a3, gradientMap: toonGradient }));
+  head.position.y = .86; group.add(head);
+  const meter = makeMeterSprite('#ff8b75'); meter.sprite.position.y = 1.3; group.add(meter.sprite);
+  group.position.set((index - 2.5) * .28, 0, 15.5 + index * .35);
+  scene.add(group); outlineObjects.push(group);
+  travelers.push({ group, meter, hp: 100, speed: 1.05 + Math.random() * .15, saved: false, attackedAt: 0, offset: (index - 2.5) * .32 });
+}
+
+function spawnMonster(kind) {
+  const group = new THREE.Group();
+  const styles = {
+    wolf: { color: 0x171329, hp: 42, speed: 2.25, scale: .72, score: 35 },
+    brute: { color: 0x251526, hp: 135, speed: .75, scale: 1.2, score: 90 },
+    moth: { color: 0x302044, hp: 30, speed: 2.65, scale: .58, score: 55 },
+  };
+  const style = styles[kind];
+  const body = new THREE.Mesh(kind === 'moth' ? new THREE.OctahedronGeometry(.4, 1) : new THREE.DodecahedronGeometry(.43, 1), new THREE.MeshToonMaterial({ color: style.color, gradientMap: toonGradient, flatShading: true }));
+  body.position.y = kind === 'moth' ? 1.45 : .48; group.add(body);
+  const eyes = new THREE.Mesh(new THREE.SphereGeometry(.07, 7, 6), new THREE.MeshBasicMaterial({ color: 0xff5f75 }));
+  eyes.position.set(0, kind === 'moth' ? 1.48 : .52, .37); group.add(eyes);
+  if (kind === 'moth') { const wingMat = new THREE.MeshBasicMaterial({ color: 0x59417e, transparent: true, opacity: .65, side: THREE.DoubleSide }); for (const side of [-1, 1]) { const wing = new THREE.Mesh(new THREE.CircleGeometry(.34, 8), wingMat); wing.position.set(side * .34, 1.45, 0); group.add(wing); } }
+  const side = Math.random() < .5 ? -1 : 1;
+  group.position.set(side * (7.5 + Math.random() * 3), kind === 'moth' ? 0 : 0, -3 - Math.random() * 31);
+  group.scale.setScalar(style.scale); scene.add(group); outlineObjects.push(group);
+  monsters.push({ group, kind, hp: style.hp, maxHp: style.hp, speed: style.speed, score: style.score, slow: 0, hitAt: 0, age: 0 });
+}
+
+function beginWave() {
+  waveState.number++;
+  waveState.remaining = 5 + waveState.number * 3;
+  waveState.spawnAt = clock.elapsedTime;
+  showToast(`Волна ${waveState.number}: тени выходят из леса`);
+  sound(156, .35, 'sawtooth', .035);
+}
+
+function addPickup(type, x, z) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(.095, 9, 8), new THREE.MeshBasicMaterial({ color: pickupColors[type] }));
+  mesh.position.set(x, .8 + Math.random() * 1.6, z);
+  mesh.userData = { type, baseY: mesh.position.y, phase: Math.random() * 6, collected: false };
+  fireflies.push(mesh); scene.add(mesh);
+}
+
+for (let i = 0; i < 6; i++) makeTraveler(i);
+for (let i = 0; i < 30; i++) addPickup(i % 8 === 0 ? 'purple' : i % 3 === 0 ? 'blue' : 'yellow', (Math.random() - .5) * 13, -38 + Math.random() * 55);
+
 function showToast(text) { const toast = $('toast'); toast.textContent = text; toast.style.opacity = '1'; clearTimeout(showToast.timer); showToast.timer = setTimeout(() => { toast.style.opacity = '0'; }, 1500); }
-function updateHUD() { $('score').textContent = String(player.score).padStart(4, '0'); $('combo').textContent = `x${Math.max(1, player.combo)}`; $('fireflies').textContent = player.fireflyCount; $('lantern-count').textContent = `${player.lit} / 8 фонарей зажжено`; $('progress-bar').style.width = `${player.lit / 8 * 100}%`; const seconds = Math.max(0, Math.ceil(player.time)); $('time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }
+function legacyUpdateHUD() { $('score').textContent = String(player.score).padStart(4, '0'); }
 function lightLantern(item) { item.lit = true; item.light.intensity = 5; item.bulb.material.color.set(0xffd17b); item.filament.material.color.set(0xfff0b4); item.glow.material.opacity = .92; item.ring.material.color.set(0xffb24f); item.ring.material.opacity = .95; player.fireflyCount -= 3; player.lit++; const now = clock.elapsedTime; const elapsedMs = Math.round((now - player.lastLightAt) * 1000); player.combo = gameCore ? gameCore.next_combo(player.combo, elapsedMs) : now - player.lastLightAt < 18 ? player.combo + 1 : 1; player.lastLightAt = now; const multiplier = 1 + (player.combo - 1) * .25; const points = gameCore ? gameCore.score_for_lantern(player.lit, player.combo) : Math.round((100 + player.lit * 25) * multiplier); player.score += points; sound(392, .25, 'sine', .04); sound(523, .4, 'sine', .04, .1); sound(659, .5, 'sine', .03, .2); showToast(player.combo > 1 ? `Комбо x${player.combo}  +${points}` : `Фонарь зажжён  +${points}`); updateHUD(); if (player.lit === lanterns.length) finish(); }
-function collectFireflies(dt) { for (const fly of fireflies) { if (fly.userData.collected) continue; fly.position.y = fly.userData.baseY + Math.sin(clock.elapsedTime * 1.7 + fly.userData.phase) * .18; fly.material.opacity = .75 + Math.sin(clock.elapsedTime * 4 + fly.userData.phase) * .25; if (fly.position.distanceTo(camera.position) < 1.25) { fly.userData.collected = true; fly.visible = false; player.fireflyCount++; player.score += 10; sound(740 + player.fireflyCount * 55, .16, 'sine', .035); showToast('+ 1 светлячок'); updateHUD(); } } }
+function legacyCollectFireflies() {}
 function nearestLantern() { let best = null; let distance = 999; for (const item of lanterns) { const d = item.group.position.distanceTo(camera.position); if (!item.lit && d < distance) { best = item; distance = d; } } return { item: best, distance }; }
-function interact() { if (!player.active) return; const near = nearestLantern(); if (near.item && near.distance < 3.2) { if (player.fireflyCount >= 3) lightLantern(near.item); else showToast(`Нужно ещё ${3 - player.fireflyCount} светлячка`); } }
-function start() { ensureAudio(); player.active = true; $('start-screen').classList.add('hidden'); renderer.domElement.requestPointerLock?.(); sound(262, .2, 'sine', .025); showToast('Найди первый фонарь'); }
-function finish() { player.active = false; player.ended = true; document.exitPointerLock?.(); const previousBest = Number(localStorage.getItem('lantern-keeper-best') || 0); const best = Math.max(previousBest, player.score); localStorage.setItem('lantern-keeper-best', String(best)); $('final-score').textContent = String(player.score).padStart(4, '0'); $('best-score').textContent = player.score >= previousBest ? 'Новый рекорд' : `Рекорд: ${String(best).padStart(4, '0')}`; $('finish-screen').classList.add('visible'); }
+function legacyInteract() {}
+function legacyStart() {}
+function legacyFinish() {}
 function reset() { location.reload(); }
 
-window.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyE') interact(); if (e.code === 'KeyR' && player.ended) reset(); });
+window.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyE') interact(); if (e.code === 'Space') { e.preventDefault(); useFlash(); } if (e.code === 'Digit1') player.selectedType = 'yellow'; if (e.code === 'Digit2') player.selectedType = 'blue'; if (e.code === 'Digit3') player.selectedType = 'purple'; if (e.code === 'KeyR' && player.ended) reset(); });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 window.addEventListener('mousemove', e => { if (!player.active || document.pointerLockElement !== renderer.domElement) return; player.yaw -= e.movementX * .0022; player.pitch = THREE.MathUtils.clamp(player.pitch - e.movementY * .0018, -1.25, 1.25); });
 renderer.domElement.addEventListener('click', () => { if (player.active) renderer.domElement.requestPointerLock?.(); });
@@ -222,10 +298,184 @@ if (location.hash === '#demo') {
   startScreen.style.display = 'none';
 }
 
-function movePlayer(dt) { const direction = new THREE.Vector3(Number(keys.KeyD) - Number(keys.KeyA), 0, Number(keys.KeyW) - Number(keys.KeyS)); if (!direction.lengthSq()) return; direction.normalize(); const forward = new THREE.Vector3(Math.sin(player.yaw), 0, -Math.cos(player.yaw)); const right = new THREE.Vector3(forward.z, 0, -forward.x); const sprinting = keys.ShiftLeft || keys.ShiftRight; const delta = forward.multiplyScalar(direction.z).add(right.multiplyScalar(direction.x)).multiplyScalar((sprinting ? 10 : player.speed) * dt); camera.position.add(delta); camera.position.x = THREE.MathUtils.clamp(camera.position.x, -5.3, 5.3); camera.position.z = THREE.MathUtils.clamp(camera.position.z, -42, 19); }
-function tick() { const dt = Math.min(clock.getDelta(), .05); if (player.active && !player.ended) { player.time -= dt; if (player.time <= 0) finish(); movePlayer(dt); collectFireflies(dt); const look = new THREE.Vector3(Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), Math.cos(player.yaw) * Math.cos(player.pitch)); camera.lookAt(camera.position.clone().add(look)); const near = nearestLantern(); $('prompt').style.opacity = near.item && near.distance < 3.2 ? '1' : '.65'; if (near.item && near.distance < 3.2) $('prompt').innerHTML = player.fireflyCount >= 3 ? '<span class="key">E</span> зажечь фонарь' : '<span class="key">E</span> нужно больше светлячков'; updateHUD(); } for (const lantern of lanterns) { if (lantern.lit) { lantern.light.intensity = 4.5 + Math.sin(clock.elapsedTime * 5 + lantern.pulse) * .4; lantern.glow.material.opacity = .75 + Math.sin(clock.elapsedTime * 4 + lantern.pulse) * .12; } } mistLayers.forEach((mist, index) => { mist.material.opacity = .045 + Math.sin(clock.elapsedTime * .32 + index) * .018; mist.position.x += Math.sin(clock.elapsedTime * .18 + index) * .0015; }); composer.render(); requestAnimationFrame(tick); }
+function movePlayer(dt) { const direction = new THREE.Vector3(Number(keys.KeyD || keys.ArrowRight) - Number(keys.KeyA || keys.ArrowLeft), 0, Number(keys.KeyW || keys.ArrowUp) - Number(keys.KeyS || keys.ArrowDown)); if (!direction.lengthSq()) return; direction.normalize(); const forward = new THREE.Vector3(Math.sin(player.yaw), 0, -Math.cos(player.yaw)); const right = new THREE.Vector3(forward.z, 0, -forward.x); const sprinting = keys.ShiftLeft || keys.ShiftRight || keys.Space; const delta = forward.multiplyScalar(direction.z).add(right.multiplyScalar(direction.x)).multiplyScalar((sprinting ? 10 : player.speed) * dt); camera.position.add(delta); camera.position.x = THREE.MathUtils.clamp(camera.position.x, -5.3, 5.3); camera.position.z = THREE.MathUtils.clamp(camera.position.z, -42, 19); }
+function legacyTick() {}
 outlinePass.selectedObjects = outlineObjects;
 window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); outlinePass.setSize(innerWidth, innerHeight); });
+function updateHUD() {
+  $('score').textContent = String(player.score).padStart(4, '0');
+  $('wave').textContent = String(Math.max(1, waveState.number)).padStart(2, '0');
+  $('time').textContent = `${String(Math.floor(Math.max(0, player.time) / 60)).padStart(2, '0')}:${String(Math.floor(Math.max(0, player.time) % 60)).padStart(2, '0')}`;
+  for (const type of Object.keys(player.inventory)) $(`fly-${type}`).textContent = player.inventory[type];
+  document.querySelectorAll('.fly-slot').forEach((slot) => slot.classList.toggle('selected', slot.dataset.type === player.selectedType));
+  const alive = travelers.filter((traveler) => !traveler.saved && traveler.hp > 0).length;
+  $('caravan-count').textContent = `Путники ${alive} / ${travelers.length}`;
+  $('caravan-bar').style.width = `${Math.max(0, alive / travelers.length * 100)}%`;
+  const activeLanterns = lanterns.filter((lantern) => lantern.lit).length;
+  $('lantern-count').textContent = `${activeLanterns} / ${lanterns.length} фонарей активно`;
+  $('progress-bar').style.width = `${activeLanterns / lanterns.length * 100}%`;
+  const flashReady = clock.elapsedTime - player.flashAt >= 10;
+  $('flash-ready').textContent = flashReady ? 'ГОТОВА' : `${Math.ceil(10 - (clock.elapsedTime - player.flashAt))} СЕК`;
+}
+
+function setLanternType(item, type) {
+  item.type = type;
+  item.lit = true;
+  item.charge = Math.min(100, item.charge + 42);
+  const config = lanternTypes[type];
+  item.light.color.set(config.color);
+  item.meter.color = `#${config.color.toString(16).padStart(6, '0')}`;
+  item.meter.sprite.visible = true;
+  item.bulb.material.color.set(config.color);
+  item.filament.material.color.set(0xfff1b2);
+  item.glow.material.color.set(config.color);
+  item.glow.material.opacity = .9;
+  item.ring.material.color.set(config.color);
+  item.ring.material.opacity = 1;
+  player.inventory[type]--;
+  player.score += 25;
+  player.shake = .08;
+  sound(type === 'blue' ? 330 : type === 'purple' ? 640 : 480, .22, 'sine', .045);
+  showToast(`${config.label[0].toUpperCase() + config.label.slice(1)}й свет заряжен`);
+}
+
+function nearestLanternToPlayer() {
+  return lanterns.reduce((nearest, item) => {
+    const distance = item.group.position.distanceTo(camera.position);
+    return !nearest || distance < nearest.distance ? { item, distance } : nearest;
+  }, null);
+}
+
+function collectFireflies() {
+  for (const fly of fireflies) {
+    if (fly.userData.collected) continue;
+    fly.position.y = fly.userData.baseY + Math.sin(clock.elapsedTime * 1.7 + fly.userData.phase) * .18;
+    fly.rotation.y += .02;
+    if (fly.position.distanceTo(camera.position) < 1.45) {
+      fly.userData.collected = true;
+      fly.visible = false;
+      player.inventory[fly.userData.type]++;
+      player.score += fly.userData.type === 'purple' ? 30 : 10;
+      showToast(`Светлячок: ${lanternTypes[fly.userData.type].label}`);
+      sound(fly.userData.type === 'blue' ? 560 : fly.userData.type === 'purple' ? 820 : 740, .15, 'sine', .035);
+    }
+  }
+}
+
+function damageMonster(monster, damage) {
+  monster.hp -= damage;
+  monster.group.scale.y = monster.kind === 'moth' ? .9 : 1.1;
+  if (monster.hp <= 0) {
+    player.score += monster.score;
+    player.shake = Math.max(player.shake, .1);
+    showToast(`Тень рассеяна  +${monster.score}`);
+    scene.remove(monster.group);
+    monsters.splice(monsters.indexOf(monster), 1);
+    sound(120, .18, 'sawtooth', .035);
+  }
+}
+
+function updateLanterns(dt) {
+  for (const lantern of lanterns) {
+    if (!lantern.lit) continue;
+    lantern.charge -= dt * (lantern.type === 'blue' ? .62 : .82);
+    if (lantern.charge <= 0) {
+      lantern.charge = 0; lantern.lit = false; lantern.type = null; lantern.meter.sprite.visible = false; lantern.light.color.set(0xffbc62); lantern.light.intensity = 0; lantern.glow.material.opacity = .05; showToast('Фонарь погас');
+      continue;
+    }
+    const config = lanternTypes[lantern.type];
+    lantern.light.intensity = (lantern.charge / 100) * (lantern.type === 'blue' ? 4 : 5) + Math.sin(clock.elapsedTime * 5 + lantern.pulse) * .18;
+    lantern.glow.material.opacity = .48 + lantern.charge / 180;
+    lantern.meter.sprite.visible = true; updateMeter(lantern.meter, lantern.charge / 100);
+    for (const monster of [...monsters]) {
+      const distance = monster.group.position.distanceTo(lantern.group.position);
+      if (distance > config.radius) continue;
+      monster.slow = lantern.type === 'blue' ? .5 : 0;
+      if (lantern.type === 'purple') {
+        if (clock.elapsedTime - lantern.attackAt > 3) { lantern.attackAt = clock.elapsedTime; damageMonster(monster, 38); player.shake = Math.max(player.shake, .14); }
+      } else damageMonster(monster, config.damage * dt);
+    }
+  }
+}
+
+function updateTravelers(dt) {
+  for (const traveler of travelers) {
+    if (traveler.saved || traveler.hp <= 0) continue;
+    let safe = false;
+    for (const lantern of lanterns) if (lantern.lit && traveler.group.position.distanceTo(lantern.group.position) < lanternTypes[lantern.type].radius) safe = true;
+    traveler.hp = Math.min(100, traveler.hp + (safe ? 7 : -1.2) * dt);
+    updateMeter(traveler.meter, traveler.hp / 100);
+    traveler.group.position.z -= traveler.speed * (safe ? 1.18 : .84) * dt;
+    traveler.group.position.x = traveler.offset + Math.sin(clock.elapsedTime * 2 + traveler.offset) * .06;
+    if (traveler.group.position.z < -39) { traveler.saved = true; player.score += 150; showToast('Путник добрался до дома  +150'); }
+  }
+  if (travelers.every((traveler) => traveler.saved)) finish(true);
+  if (travelers.every((traveler) => traveler.hp <= 0)) finish(false);
+}
+
+function updateMonsters(dt) {
+  for (const monster of [...monsters]) {
+    monster.age += dt;
+    let target = null;
+    if (monster.kind === 'brute') target = lanterns.filter((lantern) => lantern.lit).sort((a, b) => a.group.position.distanceTo(monster.group.position) - b.group.position.distanceTo(monster.group.position))[0];
+    if (!target) target = travelers.filter((traveler) => !traveler.saved && traveler.hp > 0).sort((a, b) => a.group.position.distanceTo(monster.group.position) - b.group.position.distanceTo(monster.group.position))[0];
+    if (!target) continue;
+    const targetPosition = target.group.position;
+    const distance = monster.group.position.distanceTo(targetPosition);
+    const speed = monster.speed * (monster.slow || 1);
+    if (distance > 1.2) monster.group.position.lerp(targetPosition, Math.min(1, speed * dt / Math.max(distance, 1)));
+    if (monster.kind === 'moth') monster.group.position.y = 1.45 + Math.sin(clock.elapsedTime * 4 + monster.age) * .3;
+    if (distance < 1.5 && clock.elapsedTime - monster.hitAt > (monster.kind === 'brute' ? 1.8 : .8)) {
+      monster.hitAt = clock.elapsedTime;
+      if (target.charge !== undefined) { target.charge = Math.max(0, target.charge - 13); if (target.charge === 0) target.lit = false; }
+      else target.hp -= monster.kind === 'brute' ? 17 : monster.kind === 'moth' ? 7 : 11;
+      player.shake = Math.max(player.shake, .07);
+      sound(90, .1, 'square', .025);
+    }
+  }
+}
+
+function updateWave() {
+  if (waveState.number === 0) { if (clock.elapsedTime > 2) beginWave(); return; }
+  if (waveState.remaining > 0 && clock.elapsedTime >= waveState.spawnAt) {
+    const kind = waveState.number > 1 && waveState.remaining % 5 === 0 ? 'brute' : waveState.remaining % 3 === 0 ? 'moth' : 'wolf';
+    spawnMonster(kind); waveState.remaining--; waveState.spawnAt = clock.elapsedTime + Math.max(.75, 2.4 - waveState.number * .2);
+  } else if (waveState.remaining === 0 && monsters.length === 0 && clock.elapsedTime > waveState.nextWaveAt && waveState.number < 3) {
+    waveState.nextWaveAt = clock.elapsedTime + 15; beginWave();
+  }
+}
+
+function useFlash() {
+  if (!player.active || clock.elapsedTime - player.flashAt < 10 || player.inventory.yellow + player.inventory.blue + player.inventory.purple < 2) return;
+  player.inventory.yellow = Math.max(0, player.inventory.yellow - 1);
+  player.inventory.blue = Math.max(0, player.inventory.blue - 1);
+  player.flashAt = clock.elapsedTime; player.shake = .45;
+  for (const monster of [...monsters]) { if (monster.group.position.distanceTo(camera.position) < 8) { monster.group.position.z += 4; damageMonster(monster, 70); } }
+  showToast('ВСПЫШКА! Тени отступают'); sound(880, .28, 'sine', .06); updateHUD();
+}
+
+function interact() {
+  if (!player.active) return;
+  const nearest = nearestLanternToPlayer();
+  if (nearest && nearest.distance < 3.4 && player.inventory[player.selectedType] > 0) setLanternType(nearest.item, player.selectedType);
+  updateHUD();
+}
+
+function start() { ensureAudio(); player.active = true; $('start-screen').classList.add('hidden'); renderer.domElement.requestPointerLock?.(); showToast('Защити первую группу путников'); sound(262, .2, 'sine', .025); }
+function finish(success) { if (player.ended) return; player.active = false; player.ended = true; document.exitPointerLock?.(); const previousBest = Number(localStorage.getItem('lantern-keeper-best') || 0); const best = Math.max(previousBest, player.score); localStorage.setItem('lantern-keeper-best', String(best)); $('finish-eyebrow').textContent = success ? 'ТРОПА СПАСЕНА' : 'ТЕНИ ПРОРВАЛИСЬ'; $('finish-title').innerHTML = success ? 'Доброй ночи,<br /><em>хранитель.</em>' : 'Лес поглотил<br /><em>тропу.</em>'; $('finish-copy').textContent = success ? 'Все путники добрались до дома.' : 'Путники испугались и не смогли продолжить путь.'; $('final-score').textContent = String(player.score).padStart(4, '0'); $('best-score').textContent = player.score >= previousBest ? 'Новый рекорд' : `Рекорд: ${String(best).padStart(4, '0')}`; $('finish-screen').classList.add('visible'); }
+
+function tick() {
+  const dt = Math.min(clock.getDelta(), .05);
+  if (player.active && !player.ended) { player.time -= dt; if (player.time <= 0) finish(false); movePlayer(dt); collectFireflies(); updateWave(); updateLanterns(dt); updateTravelers(dt); updateMonsters(dt); updateHUD(); }
+  const look = new THREE.Vector3(Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), -Math.cos(player.yaw) * Math.cos(player.pitch));
+  camera.lookAt(camera.position.clone().add(look));
+  player.shake = Math.max(0, player.shake - dt * 1.8);
+  root.style.transform = player.shake > 0 ? `translate(${(Math.random() - .5) * player.shake * 18}px, ${(Math.random() - .5) * player.shake * 18}px)` : '';
+  for (const lantern of lanterns) if (lantern.lit) lantern.ring.rotation.z += dt * 1.5;
+  composer.render(); requestAnimationFrame(tick);
+}
+
+document.querySelectorAll('.fly-slot').forEach((slot) => slot.addEventListener('click', () => { player.selectedType = slot.dataset.type; updateHUD(); }));
 updateHUD(); tick();
 loadGameCore();
 loadRuntimePalette();
