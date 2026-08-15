@@ -136,6 +136,12 @@ function illustratedSprite(path, width, height) {
   return sprite;
 }
 
+const forestArt = [
+  { path: '/art/trees/oak-illustrated.png', width: 9.5, height: 8.4, y: 4.2 },
+  { path: '/art/trees/pine-illustrated.png', width: 5.5, height: 9.8, y: 4.9 },
+  { path: '/art/trees/willow-illustrated.png', width: 8.6, height: 7.6, y: 3.8 },
+];
+
 const paintedBackdrop = illustratedSprite('/art/forest-backdrop.svg', 78, 44);
 paintedBackdrop.position.set(0, 13, -57);
 scene.add(paintedBackdrop);
@@ -174,7 +180,8 @@ pathDetails.rotation.x = -Math.PI / 2; pathDetails.position.y = .026; scene.add(
 
 function tree(x, z, scale = 1) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
-  const paintedTree = illustratedSprite('/art/trees/autumn-oak.png', 11, 9.7); paintedTree.position.set(0, 4.85, .32); group.add(paintedTree);
+  const art = forestArt[Math.abs(Math.floor(z / 4)) % forestArt.length];
+  const paintedTree = illustratedSprite(art.path, art.width, art.height); paintedTree.position.set(0, art.y, .32); group.add(paintedTree);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.22, .34, 3.4, 10), new THREE.MeshStandardMaterial({ color: 0x4b342b, map: barkMap, roughness: .96, metalness: 0 }));
   trunk.position.y = 1.7; trunk.castShadow = true; group.add(trunk);
   const colors = [0x8b4e36, 0xaa6234, 0xc9853d, 0x667443];
@@ -185,7 +192,8 @@ for (let i = 0; i < 20; i++) { const side = i % 2 ? 1 : -1; tree(side * (7 + Mat
 
 function foregroundTree(x, z, scale) {
   const group = new THREE.Group(); group.position.set(x, 0, z); group.scale.setScalar(scale);
-  const paintedTree = illustratedSprite('/art/trees/autumn-oak.png', 17, 15); paintedTree.position.set(0, 7.5, .45); group.add(paintedTree);
+  const art = x < 0 ? forestArt[0] : forestArt[2];
+  const paintedTree = illustratedSprite(art.path, art.width * 1.8, art.height * 1.8); paintedTree.position.set(0, art.y * 1.8, .45); group.add(paintedTree);
   const dark = new THREE.MeshToonMaterial({ color: 0x17272d, gradientMap: toonGradient });
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.38, .58, 8, 7), dark); trunk.position.y = 4; trunk.castShadow = true; group.add(trunk);
   for (const [rx, ry, rz] of [[.7, 5.8, .1], [-.65, 5.2, .25], [1.05, 4.7, -.1], [-1.2, 4.1, .15]]) { const branch = new THREE.Mesh(new THREE.CylinderGeometry(.1, .25, 3.1, 6), dark); branch.position.set(rx, ry, rz); branch.rotation.z = rx > 0 ? -.65 : .65; branch.castShadow = true; group.add(branch); }
@@ -205,6 +213,11 @@ for (let i = 0; i < 18; i++) {
 
 const grassMat = new THREE.MeshToonMaterial({ color: 0x314c45, gradientMap: toonGradient, side: THREE.DoubleSide });
 for (let i = 0; i < 70; i++) { const tuft = new THREE.Mesh(new THREE.ConeGeometry(.18 + Math.random() * .16, .55 + Math.random() * .4, 4), grassMat); tuft.position.set((Math.random() < .5 ? -1 : 1) * (4.6 + Math.random() * 8), .26, -41 + Math.random() * 59); tuft.rotation.y = Math.random() * Math.PI; scene.add(tuft); }
+for (let i = 0; i < 18; i++) {
+  const bush = illustratedSprite('/art/trees/rosehip-bush.png', 3.2 + Math.random() * 1.5, 2.4 + Math.random() * 1.1);
+  bush.position.set((i % 2 ? -1 : 1) * (5.3 + Math.random() * 5), 1.1, -39 + i * 3.3 + Math.random() * 2);
+  scene.add(bush);
+}
 
 const mistLayers = [];
 for (let i = 0; i < 7; i++) {
