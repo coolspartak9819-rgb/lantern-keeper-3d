@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101a24" />
+    <title>Lantern Keeper</title>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div class="vignette"></div>
+    <main class="hud">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark">✦</span><span>Lantern Keeper</span></div>
+        <div class="top-stats">
+          <div><span class="stat-label">SCORE</span><strong id="score">0000</strong></div>
+          <div><span class="stat-label">TIME</span><strong id="time">01:30</strong></div>
+        </div>
+      </header>
+      <section class="mission-card">
+        <div class="eyebrow">AUTUMN PARK · NIGHTFALL</div>
+        <h1>Light the way home.</h1>
+        <p>Gather fireflies and bring the park back to life before the last light fades.</p>
+        <div class="progress-row"><span id="lantern-count">0 / 8 lanterns lit</span><div class="progress"><i id="progress-bar"></i></div></div>
+      </section>
+      <div class="prompt" id="prompt"><span class="key">W A S D</span> move <span class="key">MOUSE</span> look</div>
+      <div class="crosshair" aria-hidden="true"><i></i></div>
+      <aside class="inventory">
+        <div class="inventory-icon">✦</div>
+        <div><span class="stat-label">FIREFLIES</span><strong><span id="fireflies">0</span> / 3</strong></div>
+      </aside>
+      <div class="toast" id="toast"></div>
+      <section class="start-screen" id="start-screen">
+        <div class="start-glow"></div>
+        <div class="start-content">
+          <div class="eyebrow">A SMALL NIGHT WALK</div>
+          <h2>Lantern<br /><em>Keeper</em></h2>
+          <p>A quiet little game about light, timing, and finding your way through the park.</p>
+          <button id="start-button">Enter the park <span>→</span></button>
+          <div class="controls"><span><b>WASD</b> move</span><span><b>MOUSE</b> look</span><span><b>E</b> light</span></div>
+        </div>
+      </section>
+      <section class="finish-screen" id="finish-screen">
+        <div class="finish-card"><div class="eyebrow">THE PARK IS ALIVE AGAIN</div><h2>Good night,<br /><em>keeper.</em></h2><p>You lit every lantern before the dark settled in.</p><div class="final-score"><span>FINAL SCORE</span><strong id="final-score">0000</strong></div><button id="restart-button">Walk it again <span>↗</span></button></div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
